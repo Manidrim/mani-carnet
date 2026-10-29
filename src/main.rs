@@ -1,4 +1,5 @@
 mod config;
+mod datepicker;
 mod model;
 mod notify;
 mod store;
@@ -39,6 +40,8 @@ struct App {
     // Tâches
     tasks: Vec<Task>,
     new_task: String,
+    /// Date limite choisie au calendrier pour la prochaine tâche.
+    new_due: Option<chrono::NaiveDate>,
     task_filter: String,
     hide_done: bool,
     only_today: bool,
@@ -69,6 +72,7 @@ impl App {
             sync_url: String::new(),
             autostart: config::autostart_enabled(),
             new_task: String::new(),
+            new_due: None,
             task_filter: String::new(),
             hide_done: false,
             only_today: false,
@@ -148,7 +152,12 @@ impl App {
                 input.push_str(&format!(" #{t}"));
             }
         }
-        if let Some(t) = Task::from_input(&input) {
+        if let Some(mut t) = Task::from_input(&input) {
+            // Une date tapée (@demain…) a priorité sur celle du calendrier.
+            if t.due.is_none() {
+                t.due = self.new_due;
+            }
+            self.new_due = None;
             self.tasks.insert(0, t);
             self.new_task.clear();
             self.save_tasks();
@@ -265,11 +274,31 @@ impl App {
             Some(t) => format!("Nouvelle tâche dans #{t}…  (@demain  @lundi  @14h30)"),
             None => "Nouvelle tâche…  (#tag  @demain  @lundi  @14h30  @2026-11-03)".into(),
         };
-        let resp = ui.add(
-            egui::TextEdit::singleline(&mut self.new_task)
-                .hint_text(hint)
-                .desired_width(f32::INFINITY),
-        );
+        let today = Local::now().date_naive();
+        let resp = ui
+            .horizontal(|ui| {
+                let resp = ui.add(
+                    egui::TextEdit::singleline(&mut self.new_task)
+                        .hint_text(hint)
+                        .desired_width(ui.available_width() - 190.0),
+                );
+                let label = match self.new_due {
+                    Some(d) => RichText::new(format!("📅 {}", datepicker::human(d, today))).color(TAG),
+                    None => RichText::new("📅 Date limite"),
+                };
+                let b = ui.add_sized([180.0, 20.0], egui::Button::new(label))
+                    .on_hover_text("Choisir une date limite pour la prochaine tâche");
+                match datepicker::picker(ui, &b, self.new_due) {
+                    datepicker::Pick::Set(d) => {
+                        self.new_due = Some(d);
+                        self.focus_new_task = true;
+                    }
+                    datepicker::Pick::Clear => self.new_due = None,
+                    datepicker::Pick::Nothing => {}
+                }
+                resp
+            })
+            .inner;
         if self.focus_new_task {
             resp.request_focus();
             self.focus_new_task = false;
@@ -299,7 +328,6 @@ impl App {
         ui.separator();
 
         let filter = self.task_filter.to_lowercase();
-        let today = Local::now().date_naive();
         let mut changed = false;
         let mut to_delete = None;
         let mut clicked_tag = None;
@@ -370,18 +398,20 @@ impl App {
                         }
                     }
 
+                    // Date limite : clic dessus = calendrier pour la changer.
+                    let mut pick = datepicker::Pick::Nothing;
                     if let Some(d) = t.due {
-                        let mut s = if d == today {
-                            "aujourd'hui".to_string()
-                        } else {
-                            d.format("%d/%m/%Y").to_string()
-                        };
+                        let mut s = datepicker::human(d, today);
                         if let Some(h) = t.time {
                             s.push_str(&h.format(" %H:%M").to_string());
                         }
                         let overdue = !t.done && d < today;
-                        let txt = RichText::new(format!("  ⏰ {s}"));
-                        ui.label(if overdue { txt.color(RED) } else { txt.weak() });
+                        let txt = RichText::new(format!("⏰ {s}"));
+                        let txt = if overdue { txt.color(RED) } else { txt.weak() };
+                        let b = ui
+                            .add(egui::Button::new(txt).frame(false))
+                            .on_hover_text("Changer la date limite");
+                        pick = datepicker::picker(ui, &b, t.due);
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.small_button("✕").on_hover_text("Supprimer").clicked() {
@@ -390,7 +420,23 @@ impl App {
                         if ui.small_button("✏").on_hover_text("Modifier (ou double-clic)").clicked() {
                             start_edit = Some(i);
                         }
+                        if t.due.is_none() {
+                            let b = ui.small_button("📅").on_hover_text("Ajouter une date limite");
+                            pick = datepicker::picker(ui, &b, None);
+                        }
                     });
+                    match pick {
+                        datepicker::Pick::Set(d) => {
+                            t.due = Some(d);
+                            changed = true;
+                        }
+                        datepicker::Pick::Clear => {
+                            t.due = None;
+                            t.time = None;
+                            changed = true;
+                        }
+                        datepicker::Pick::Nothing => {}
+                    }
                 });
             }
         });
