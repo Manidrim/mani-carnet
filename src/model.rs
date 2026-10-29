@@ -109,7 +109,7 @@ fn parse_due(s: &str, today: NaiveDate) -> Option<(Option<NaiveDate>, Option<Nai
     let d = match lower.as_str() {
         "auj" | "aujourdhui" | "aujourd'hui" | "today" => today,
         "demain" | "tomorrow" => today + Duration::days(1),
-        "apresdemain" | "après-demain" => today + Duration::days(2),
+        "apresdemain" | "après-demain" | "apres-demain" | "aprèsdemain" => today + Duration::days(2),
         other => next_weekday(today, weekday_fr(other)?),
     };
     Some((Some(d), None))
@@ -136,6 +136,11 @@ fn weekday_fr(s: &str) -> Option<Weekday> {
         "dimanche" => Weekday::Sun,
         _ => return None,
     })
+}
+
+/// Date correspondant à un mot de complétion (`demain`, `lundi`…), pour l'afficher.
+pub fn date_of_word(word: &str, today: NaiveDate) -> Option<NaiveDate> {
+    parse_due(word, today).and_then(|(d, _)| d)
 }
 
 /// Prochain jour donné, strictement après aujourd'hui (`@lundi` un lundi = lundi prochain).

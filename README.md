@@ -30,6 +30,8 @@ Tape une tâche, puis Entrée. Coche la case pour la terminer. Double-clic ou �
 | `@14h30`            | aujourd'hui à 14h30 (combinable : `@demain @9h`) |
 | `@2026-11-03`       | date précise                                 |
 
+**Complétion des dates** : tape `@` dans une tâche, une liste propose `aujourd'hui`, `demain`, `après-demain` et les jours de la semaine, avec la date correspondante. `@ap` filtre sur après-demain, accents facultatifs. ↑↓ pour choisir, Tab ou Entrée pour valider, Échap pour fermer. Ça marche aussi en modifiant une tâche.
+
 **Date limite au calendrier** : le bouton 📅 à droite de la saisie ouvre un calendrier, avec des raccourcis Aujourd'hui, Demain, Lundi et +1 semaine. Sur une tâche existante, clique sur sa date pour la changer ou la retirer, ou sur 📅 si elle n'en a pas encore.
 
 Tri automatique : en retard, puis par échéance ; les tâches sans date ensuite ; les terminées en bas.
@@ -56,6 +58,7 @@ La première fois, macOS peut demander d'autoriser les notifications de « Édit
 - `notes/*.md` : une note par fichier, le titre est la première ligne.
 
 ## Code
+- `completion.rs` : complétion des `@dates` pendant la saisie
 - `datepicker.rs` : calendrier en français (bulle sous un bouton)
 - `model.rs` : une tâche, la syntaxe `#tag` / `@date` et les tests
 - `store.rs` : lecture et écriture des fichiers (écriture atomique)

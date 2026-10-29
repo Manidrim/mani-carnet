@@ -23,6 +23,12 @@ const MONTHS_SHORT: [&str; 12] = [
 const DAYS: [&str; 7] = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 const DAYS_SHORT: [&str; 7] = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
 
+/// Date courte, toujours explicite : « sam. 31 oct. ».
+pub fn short(d: NaiveDate) -> String {
+    let wd = d.weekday().num_days_from_monday() as usize;
+    format!("{} {} {}", DAYS_SHORT[wd], d.day(), MONTHS_SHORT[d.month0() as usize])
+}
+
 /// Date lisible : « aujourd'hui », « demain », « jeudi », « lun. 3 nov. », « 3 nov. 2027 ».
 pub fn human(d: NaiveDate, today: NaiveDate) -> String {
     let wd = d.weekday().num_days_from_monday() as usize;

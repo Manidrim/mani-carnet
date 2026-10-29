@@ -1,3 +1,4 @@
+mod completion;
 mod config;
 mod datepicker;
 mod model;
@@ -47,6 +48,7 @@ struct App {
     only_today: bool,
     focus_new_task: bool,
     editing: Option<(usize, String)>,
+    focus_edit: bool,
 
     // Notes
     notes: Vec<NoteMeta>,
@@ -78,6 +80,7 @@ impl App {
             only_today: false,
             focus_new_task: true,
             editing: None,
+            focus_edit: false,
             note_filter: String::new(),
             current: None,
             editor: String::new(),
@@ -272,16 +275,13 @@ impl App {
     fn tasks_ui(&mut self, ui: &mut egui::Ui) {
         let hint = match &self.tag {
             Some(t) => format!("Nouvelle tâche dans #{t}…  (@demain  @lundi  @14h30)"),
-            None => "Nouvelle tâche…  (#tag  @demain  @lundi  @14h30  @2026-11-03)".into(),
+            None => "Nouvelle tâche…  (#tag, @ pour une date : @demain, @lundi, @14h30)".into(),
         };
         let today = Local::now().date_naive();
         let resp = ui
             .horizontal(|ui| {
-                let resp = ui.add(
-                    egui::TextEdit::singleline(&mut self.new_task)
-                        .hint_text(hint)
-                        .desired_width(ui.available_width() - 190.0),
-                );
+                let width = ui.available_width() - 190.0;
+                let (resp, _) = completion::text_edit(ui, &mut self.new_task, "nouvelle_tache", &hint, width);
                 let label = match self.new_due {
                     Some(d) => RichText::new(format!("📅 {}", datepicker::human(d, today))).color(TAG),
                     None => RichText::new("📅 Date limite"),
@@ -368,11 +368,20 @@ impl App {
                     // Mode édition (double-clic sur le texte)
                     if let Some((ei, buf)) = &mut self.editing {
                         if *ei == i {
-                            let r = ui.add(egui::TextEdit::singleline(buf).desired_width(f32::INFINITY));
-                            r.request_focus();
-                            if ui.input(|i| i.key_pressed(Key::Escape)) {
+                            let width = ui.available_width();
+                            let (r, dismissed) = completion::text_edit(ui, buf, "edition_tache", "", width);
+                            // Focus donné une seule fois à l'ouverture (le redemander à chaque image
+                            // empêchait de détecter la fin de l'édition).
+                            if self.focus_edit {
+                                r.request_focus();
+                                self.focus_edit = false;
+                            }
+                            // Entrée et Échap sont déjà absorbés par la complétion quand sa liste est ouverte.
+                            if dismissed {
+                                // Échap a seulement fermé la liste : on reste en édition.
+                            } else if ui.input(|i| i.key_pressed(Key::Escape)) {
                                 cancel_edit = true;
-                            } else if r.lost_focus() {
+                            } else if r.lost_focus() || ui.input(|i| i.key_pressed(Key::Enter)) {
                                 commit_edit = true;
                             }
                             return;
@@ -443,6 +452,7 @@ impl App {
 
         if let Some(i) = start_edit {
             self.editing = Some((i, self.tasks[i].to_line()[6..].to_string()));
+            self.focus_edit = true;
         }
         if cancel_edit {
             self.editing = None;
