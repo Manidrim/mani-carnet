@@ -1,0 +1,23 @@
+[package]
+name = "carnet"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.45"
+dirs = "7.0.0"
+eframe = "0.37.0"
+
+# `cargo bundle --release` → target/release/bundle/osx/Carnet.app
+[package.metadata.bundle]
+name = "Carnet"
+identifier = "fr.campingcarpark.carnet"
+icon = ["assets/icon-*.png"]
+category = "Productivity"
+short_description = "Notes et tâches"
+
+[package.metadata.bundle.osx]
+minimum_system_version = "11.0"
+
+[profile.release]
+strip = true
